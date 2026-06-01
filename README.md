@@ -69,9 +69,9 @@ Crea o edita el archivo `.env` con tus credenciales:
 
 ```
 DB_USER=avnadmin
-DB_PASSWORD=AVNS_2FTghz4Gv6SS7rMDHoc
-DB_HOST=mysql-5cb43f0-paginawebhoteles-52d7.a.aivencloud.com
-DB_PORT=12975
+DB_PASSWORD=
+DB_HOST=mysql
+DB_PORT=
 DB_NAME=defaultdb
 
 ```
