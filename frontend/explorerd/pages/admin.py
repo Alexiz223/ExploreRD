@@ -18,6 +18,8 @@ class AdminState(rx.State):
     form_id: int = 0
     form_nombre: str = ""
     form_descripcion: str = ""
+    form_descripcion_larga: str = ""
+    form_itinerario: str = ""
     form_precio: str = ""
     form_duracion: str = ""
     form_ubicacion: str = ""
@@ -33,6 +35,8 @@ class AdminState(rx.State):
 
     def set_form_nombre(self, v: str): self.form_nombre = v
     def set_form_descripcion(self, v: str): self.form_descripcion = v
+    def set_form_descripcion_larga(self, v: str): self.form_descripcion_larga = v
+    def set_form_itinerario(self, v: str): self.form_itinerario = v
     def set_form_precio(self, v: str): self.form_precio = v
     def set_form_duracion(self, v: str): self.form_duracion = v
     def set_form_ubicacion(self, v: str): self.form_ubicacion = v
@@ -55,7 +59,7 @@ class AdminState(rx.State):
                 self.reservas = r_res.json() if r_res.status_code == 200 else []
                 self.ofertas  = r_of.json()  if r_of.status_code  == 200 else []
                 self.mensajes = r_msg.json() if r_msg.status_code == 200 else []
-        except Exception as e:
+        except Exception:
             self.error_msg = "⚠️ No se pudo conectar al servidor."
         self.cargando = False
 
@@ -136,6 +140,8 @@ class AdminState(rx.State):
         self.form_id = 0
         self.form_nombre = ""
         self.form_descripcion = ""
+        self.form_descripcion_larga = ""
+        self.form_itinerario = ""
         self.form_precio = ""
         self.form_duracion = ""
         self.form_ubicacion = ""
@@ -145,16 +151,18 @@ class AdminState(rx.State):
         self.dialog_abierto = True
 
     def abrir_modal_editar(self, oferta: Dict[str, Any]):
-        self.form_id         = int(oferta.get("id", 0))
-        self.form_nombre     = str(oferta.get("nombre", ""))
-        self.form_descripcion= str(oferta.get("descripcion", ""))
-        self.form_precio     = str(oferta.get("precio", ""))
-        self.form_duracion   = str(oferta.get("duracion", "") or "")
-        self.form_ubicacion  = str(oferta.get("ubicacion", "") or "")
-        self.form_imagen     = str(oferta.get("imagen_url", "") or "")
-        self.form_cupos      = str(oferta.get("cupos_disponibles", 10))
-        self.modo_edicion    = True
-        self.dialog_abierto  = True
+        self.form_id              = int(oferta.get("id", 0))
+        self.form_nombre          = str(oferta.get("nombre", ""))
+        self.form_descripcion     = str(oferta.get("descripcion", ""))
+        self.form_descripcion_larga = str(oferta.get("descripcion_larga", "") or "")
+        self.form_itinerario      = str(oferta.get("itinerario", "") or "")
+        self.form_precio          = str(oferta.get("precio", ""))
+        self.form_duracion        = str(oferta.get("duracion", "") or "")
+        self.form_ubicacion       = str(oferta.get("ubicacion", "") or "")
+        self.form_imagen          = str(oferta.get("imagen_url", "") or "")
+        self.form_cupos           = str(oferta.get("cupos_disponibles", 10))
+        self.modo_edicion         = True
+        self.dialog_abierto       = True
 
     async def guardar_oferta(self):
         if not self.form_nombre or not self.form_precio:
@@ -163,11 +171,13 @@ class AdminState(rx.State):
         payload = {
             "nombre": self.form_nombre,
             "descripcion": self.form_descripcion or "Sin descripción",
+            "descripcion_larga": self.form_descripcion_larga or None,
             "precio": float(self.form_precio),
             "duracion": self.form_duracion or None,
             "ubicacion": self.form_ubicacion or None,
             "imagen_url": self.form_imagen or None,
             "cupos_disponibles": int(self.form_cupos or 10),
+            "itinerario": self.form_itinerario or None,
         }
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
@@ -354,14 +364,14 @@ def admin() -> rx.Component:
 
                 # Tabs
                 rx.hstack(
-                    rx.button("📅 Reservas",   color_scheme="green",
+                    rx.button("📅 Reservas", color_scheme="green",
                         variant=rx.cond(AdminState.tab_actual == "reservas", "solid", "outline"),
                         on_click=AdminState.cambiar_tab("reservas")),
                     rx.button("📩 Sugerencias", color_scheme="purple",
                         variant=rx.cond(AdminState.tab_actual == "mensajes", "solid", "outline"),
                         on_click=AdminState.cambiar_tab("mensajes")),
-                    rx.button("🗺️ Ofertas",    color_scheme="orange",
-                        variant=rx.cond(AdminState.tab_actual == "ofertas",  "solid", "outline"),
+                    rx.button("🗺️ Ofertas", color_scheme="orange",
+                        variant=rx.cond(AdminState.tab_actual == "ofertas", "solid", "outline"),
                         on_click=AdminState.cambiar_tab("ofertas")),
                     spacing="3", width="100%"
                 ),
@@ -436,37 +446,64 @@ def admin() -> rx.Component:
                 rx.vstack(
                     rx.text("Nombre *", font_weight="600"),
                     rx.input(value=AdminState.form_nombre, on_change=AdminState.set_form_nombre, width="100%", color="black"),
-                    rx.text("Descripción *", font_weight="600"),
-                    rx.text_area(value=AdminState.form_descripcion, on_change=AdminState.set_form_descripcion, width="100%", rows="3"),
+
+                    rx.text("Descripción corta *", font_weight="600"),
+                    rx.text_area(
+                        value=AdminState.form_descripcion,
+                        on_change=AdminState.set_form_descripcion,
+                        width="100%", rows="2", color="black",
+                        placeholder="Resumen breve que aparece en la tarjeta de inicio",
+                    ),
+
+                    rx.text("Descripción General (detallada)", font_weight="600"),
+                    rx.text_area(
+                        value=AdminState.form_descripcion_larga,
+                        on_change=AdminState.set_form_descripcion_larga,
+                        width="100%", rows="4", color="black",
+                        placeholder="Descripción completa que aparece en la página de destinos",
+                    ),
+
+                    rx.text("Itinerario de Actividades", font_weight="600"),
+                    rx.text_area(
+                        value=AdminState.form_itinerario,
+                        on_change=AdminState.set_form_itinerario,
+                        width="100%", rows="4", color="black",
+                        placeholder="Día 1: Llegada y playa...\nDía 2: Tour por la ciudad...\nDía 3: Regreso...",
+                    ),
+
                     rx.grid(
                         rx.vstack(
                             rx.text("Precio (RD$) *", font_weight="600"),
-                            rx.input(value=AdminState.form_precio, on_change=AdminState.set_form_precio, type="number", width="100%"),
+                            rx.input(value=AdminState.form_precio, on_change=AdminState.set_form_precio, type="number", width="100%", color="black"),
                         ),
                         rx.vstack(
                             rx.text("Duración", font_weight="600"),
-                            rx.input(value=AdminState.form_duracion, on_change=AdminState.set_form_duracion, placeholder="Ej: 3 días", width="100%"),
+                            rx.input(value=AdminState.form_duracion, on_change=AdminState.set_form_duracion, placeholder="Ej: 3 días", width="100%", color="black"),
                         ),
                         columns="2", spacing="4", width="100%"
                     ),
+
                     rx.grid(
                         rx.vstack(
                             rx.text("Ubicación", font_weight="600"),
-                            rx.input(value=AdminState.form_ubicacion, on_change=AdminState.set_form_ubicacion, width="100%"),
+                            rx.input(value=AdminState.form_ubicacion, on_change=AdminState.set_form_ubicacion, width="100%", color="black"),
                         ),
                         rx.vstack(
                             rx.text("Cupos disponibles", font_weight="600"),
-                            rx.input(value=AdminState.form_cupos, on_change=AdminState.set_form_cupos, type="number", width="100%"),
+                            rx.input(value=AdminState.form_cupos, on_change=AdminState.set_form_cupos, type="number", width="100%", color="black"),
                         ),
                         columns="2", spacing="4", width="100%"
                     ),
+
                     rx.text("URL de Imagen", font_weight="600"),
-                    rx.input(value=AdminState.form_imagen, on_change=AdminState.set_form_imagen, placeholder="https://...", width="100%"),
+                    rx.input(value=AdminState.form_imagen, on_change=AdminState.set_form_imagen, placeholder="https://...", width="100%", color="black"),
+
                     rx.cond(
                         AdminState.error_msg != "",
                         rx.text(AdminState.error_msg, color="red", font_size="0.85rem"),
                         rx.box()
                     ),
+
                     rx.hstack(
                         rx.dialog.close(rx.button("Cancelar", variant="soft", color_scheme="gray")),
                         rx.button(
@@ -475,7 +512,11 @@ def admin() -> rx.Component:
                         ),
                         justify="end", width="100%", padding_top="1rem"
                     ),
-                    align_items="start", spacing="3"
+
+                    align_items="start", spacing="3",
+                    max_height="80vh",
+                    overflow_y="auto",
+                    padding_right="0.5rem",
                 )
             ),
             open=AdminState.dialog_abierto,
